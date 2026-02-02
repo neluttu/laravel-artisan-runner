@@ -1,5 +1,11 @@
 # Laravel Artisan Runner v1.0
 
+> **⚠️ Disclaimer / Avertisment:**
+>
+> **EN:** Not all Artisan commands have been tested — especially destructive ones (e.g., `migrate:fresh`, `db:wipe`, `storage:unlink`). Use this script **at your own risk**. Always back up your database and files before running commands you're unsure about.
+>
+> **RO:** Nu toate comenzile Artisan au fost testate — în special cele distructive (ex: `migrate:fresh`, `db:wipe`, `storage:unlink`). Folosiți acest script **pe propriul risc**. Faceți întotdeauna backup la baza de date și fișiere înainte de a rula comenzi de care nu sunteți siguri.
+
 Run Laravel Artisan commands directly from your browser — built for **shared hosting (cPanel)** environments where you have **no SSH access**, **no terminal**, and **no command line**.
 
 If you deploy Laravel on shared hosting providers like Bluehost, Hostinger, Namecheap, SiteGround, GoDaddy, A2 Hosting, or any cPanel-based host, you know the struggle: there's no way to run `php artisan migrate`, clear cache, or manage your application without SSH. **Artisan Runner solves this.**
