@@ -164,4 +164,4 @@ Copyright (c) [@neluttu](https://github.com/neluttu)
 
 [![X](https://img.shields.io/badge/X-@neluttu-000?logo=x&logoColor=white)](https://x.com/neluttu)
 [![GitHub](https://img.shields.io/badge/GitHub-neluttu-000?logo=github&logoColor=white)](https://github.com/neluttu)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-ionel-olariu-000?logo=linkedin&logoColor=white)](https://linkedin.com/in/ionel-olariu)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-ionel--olariu-000?logo=linkedin&logoColor=white)](https://linkedin.com/in/ionel-olariu)
