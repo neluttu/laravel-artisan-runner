@@ -79,6 +79,7 @@ if ($authenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_aj
         'package:discover'      => [],
         // Database
         'migrate'               => ['--force' => true],
+        'migrate:path'          => ['--force' => true],
         'migrate:status'        => [],
         'migrate:install'       => [],
         'migrate:rollback'      => ['--force' => true],
@@ -142,6 +143,27 @@ if ($authenticated && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_aj
         // For compound commands like "migrate:fresh --seed", extract the base artisan command
         $artisanCmd = explode(' ', $cmd)[0];
         $args = $commands[$cmd];
+
+        // migrate:path — run a specific migration file
+        if ($cmd === 'migrate:path') {
+            $migrationFile = trim($_POST['path'] ?? '');
+            if (!preg_match('/^[a-zA-Z0-9_\-]+\.php$/', $migrationFile)) {
+                echo json_encode(['ok' => false, 'output' => 'Invalid migration filename.']);
+                exit;
+            }
+            $fullPath = base_path('database/migrations/' . $migrationFile);
+            if (!file_exists($fullPath)) {
+                echo json_encode(['ok' => false, 'output' => "Migration file not found: database/migrations/{$migrationFile}"]);
+                exit;
+            }
+            \Illuminate\Support\Facades\Artisan::call('migrate', [
+                '--path' => 'database/migrations/' . $migrationFile,
+                '--force' => true,
+            ]);
+            $output = trim(\Illuminate\Support\Facades\Artisan::output());
+            echo json_encode(['ok' => true, 'output' => $output ?: 'Done.']);
+            exit;
+        }
 
         // Route list commands: return structured JSON for table rendering
         if ($artisanCmd === 'route:list') {
@@ -274,6 +296,7 @@ $commands = [
         'label' => 'Database',
         'items' => [
             'migrate'              => 'Run pending migrations',
+            'migrate:path'         => 'Run a specific migration file',
             'migrate:status'       => 'Show the status of each migration',
             'migrate:install'      => 'Create the migration repository',
             'migrate:rollback'     => 'Rollback the last batch of migrations',
@@ -432,14 +455,27 @@ $tabKeys = array_keys($commands);
                             <div x-show="activeTab === '<?= $key ?>'" x-cloak>
                                 <div class="flex flex-wrap gap-2">
                                     <?php foreach ($cat['items'] as $cmd => $desc): ?>
-                                        <button
-                                            @click="run('<?= $cmd ?>')"
-                                            :disabled="running"
-                                            title="<?= $desc ?>"
-                                            class="cmd-btn inline-flex items-center gap-2 px-3 py-2 rounded-md border border-zinc-800 hover:border-[#f53003]/30 disabled:opacity-40 disabled:pointer-events-none group">
-                                            <span class="text-[#f53003] text-xs"><?= $cmd ?></span>
-                                            <span class="text-zinc-600 text-[10px] group-hover:text-zinc-400 transition-colors"><?= $desc ?></span>
-                                        </button>
+                                        <?php if ($cmd === 'migrate:path'): ?>
+                                            <div class="flex items-center gap-2 w-full mt-1 px-3 py-2 rounded-md border border-zinc-800">
+                                                <span class="text-[#f53003] text-xs shrink-0">migrate --path=</span>
+                                                <input type="text" x-model="migratePath" placeholder="2024_01_01_000000_create_example_table.php"
+                                                    :disabled="running"
+                                                    class="flex-1 bg-transparent text-[#ff6b4a] text-xs outline-none placeholder-zinc-700 border-b border-zinc-700 focus:border-[#f53003] transition-colors py-0.5 disabled:opacity-40">
+                                                <button @click="runMigratePath()" :disabled="running || !migratePath.trim()"
+                                                    class="cmd-btn shrink-0 px-3 py-1 rounded border border-zinc-700 hover:border-[#f53003]/30 text-[#f53003] text-xs disabled:opacity-40 disabled:pointer-events-none">
+                                                    run
+                                                </button>
+                                            </div>
+                                        <?php else: ?>
+                                            <button
+                                                @click="run('<?= $cmd ?>')"
+                                                :disabled="running"
+                                                title="<?= $desc ?>"
+                                                class="cmd-btn inline-flex items-center gap-2 px-3 py-2 rounded-md border border-zinc-800 hover:border-[#f53003]/30 disabled:opacity-40 disabled:pointer-events-none group">
+                                                <span class="text-[#f53003] text-xs"><?= $cmd ?></span>
+                                                <span class="text-zinc-600 text-[10px] group-hover:text-zinc-400 transition-colors"><?= $desc ?></span>
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
@@ -547,6 +583,7 @@ $tabKeys = array_keys($commands);
                 cmdHistory: [],
                 cmdHistoryIndex: -1,
                 input: '',
+                migratePath: '',
                 running: false,
                 currentCmd: '',
 
@@ -663,6 +700,45 @@ $tabKeys = array_keys($commands);
 
                 runInput() {
                     this.run(this.input);
+                },
+
+                async runMigratePath() {
+                    const file = this.migratePath.trim();
+                    if (this.running || !file) return;
+
+                    const displayCmd = 'migrate --path=database/migrations/' + file;
+
+                    if (!confirm(`⚠️ This will run a specific migration!\n\nAre you sure you want to run "${displayCmd}"?`)) {
+                        this.history.push({ cmd: displayCmd, ok: false, output: 'Command cancelled by user.' });
+                        this.$nextTick(() => this.scrollTerminal());
+                        return;
+                    }
+
+                    this.running = true;
+                    this.currentCmd = displayCmd;
+                    this.addToCmdHistory(displayCmd);
+                    this.$nextTick(() => this.scrollTerminal());
+
+                    try {
+                        const form = new FormData();
+                        form.append('_ajax', '1');
+                        form.append('cmd', 'migrate:path');
+                        form.append('path', file);
+
+                        const res = await fetch(window.location.pathname, { method: 'POST', body: form });
+                        const data = await res.json();
+
+                        this.history.push({ cmd: displayCmd, ok: data.ok, output: data.output, type: 'text' });
+                    } catch (e) {
+                        this.history.push({ cmd: displayCmd, ok: false, output: 'Network error: ' + e.message });
+                    }
+
+                    this.running = false;
+                    this.migratePath = '';
+                    this.$nextTick(() => {
+                        this.scrollTerminal();
+                        this.$refs.cmdInput?.focus();
+                    });
                 },
 
                 addToCmdHistory(cmd) {
